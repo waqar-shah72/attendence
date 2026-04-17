@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hive of Solutions | Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&family=JetBrains+Mono&display=swap');
+        
+        :root {
+            --honey: #fcac18;
+            --emerald: #032721;
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: black; 
+            color: white; 
+        }
+
+        .glass { 
+            background: rgba(3, 39, 33, 0.4); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(252, 172, 24, 0.15); 
+        }
+
+        .text-honey { color: var(--honey); }
+        .bg-honey { background-color: var(--honey); }
+        .border-honey { border-color: var(--honey); }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Custom scrollbar for emerald theme */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: black; }
+        ::-webkit-scrollbar-thumb { background: var(--emerald); border-radius: 10px; }
+    </style>
+</head>
+<body class="p-6 md:p-10 min-h-screen">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-12 gap-8">
+            <div class="flex items-center gap-4">
+                <img src="logo.png" alt="Hive of Solutions" class="h-16 w-auto">
+                <div class="h-12 w-[1px] bg-honey/30 hidden md:block"></div>
+                <div>
+                    <h1 class="text-2xl font-extrabold tracking-tighter">HIVE OF <span class="text-honey">SOLUTIONS</span></h1>
+                    <p class="text-[10px] font-bold uppercase tracking-[0.4em] text-white/50">Admin Management Portal</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="relative">
+                    <input type="text" id="filter-name" oninput="renderTable()" placeholder="Search Employee..." 
+                        class="glass pl-12 pr-6 py-3 rounded-xl outline-none focus:ring-2 focus:ring-honey/50 transition-all text-sm w-64">
+                    <span class="absolute left-4 top-3.5 opacity-40">🔍</span>
+                </div>
+                
+                <input type="month" id="filter-month" onchange="fetchAdminData()" 
+                    class="glass px-6 py-3 rounded-xl outline-none text-sm text-honey font-bold cursor-pointer">
+                
+                <button onclick="handleLogout()" class="border border-red-500/30 text-red-500 px-6 py-3 rounded-xl text-xs font-black hover:bg-red-500 hover:text-white transition-all uppercase tracking-widest">
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="glass p-6 rounded-3xl border-l-4 border-honey">
+                <p class="text-[10px] font-black text-honey uppercase mb-1">Total Active</p>
+                <h3 id="stat-active" class="text-3xl font-black italic">0</h3>
+            </div>
+            <div class="glass p-6 rounded-3xl border-l-4 border-emerald-500">
+                <p class="text-[10px] font-black text-emerald-500 uppercase mb-1">Avg. Hours</p>
+                <h3 id="stat-avg" class="text-3xl font-black italic">0h</h3>
+            </div>
+            <div class="glass p-6 rounded-3xl border-l-4 border-white/20">
+                <p class="text-[10px] font-black text-white/40 uppercase mb-1">Month Selected</p>
+                <h3 id="stat-month" class="text-3xl font-black italic">N/A</h3>
+            </div>
+        </div>
+
+        <div class="glass rounded-[2rem] overflow-hidden shadow-2xl">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="bg-honey/10 text-[10px] font-black uppercase tracking-widest text-honey border-b border-honey/20">
+                            <th class="p-6">Employee Identity</th>
+                            <th class="p-6">Work Date</th>
+                            <th class="p-6">Punch In</th>
+                            <th class="p-6">Punch Out</th>
+                            <th class="p-6">Net Duration</th>
+                            <th class="p-6 text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-table-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const _supabase = supabase.createClient('https://bbshtqpmpnzqivjfnelf.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJic2h0cXBtcG56cWl2amZuZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzODY2MDEsImV4cCI6MjA5MTk2MjYwMX0.nD-exGA7NF4vUJhZPBkWkyV-JHQYXGoZdOzWbDAAj8I');
+
+        let rawLogs = [];
+
+        async function checkAdmin() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) return window.location.href = "index.html";
+
+            const { data: profile } = await _supabase.from('profiles').select('role').eq('id', session.user.id).single();
+            if (profile?.role !== 'admin') {
+                alert("Restricted Area");
+                window.location.href = "dashboard.html";
+            } else {
+                fetchAdminData();
+            }
+        }
+
+        async function fetchAdminData() {
+            const monthInput = document.getElementById('filter-month').value;
+            document.getElementById('stat-month').innerText = monthInput || "All Time";
+            
+            let query = _supabase.from('attendance').select('*, profiles(username)');
+
+            if (monthInput) {
+                const [y, m] = monthInput.split('-');
+                query = query.gte('date', `${y}-${m}-01`).lte('date', `${y}-${m}-31`);
+            }
+
+            const { data, error } = await query.order('date', { ascending: false });
+            if (error) return console.error(error);
+
+            // GROUPING LOGIC (Multiple actions into one row)
+            const grouped = {};
+            data.forEach(log => {
+                const key = `${log.user_id}_${log.date}`;
+                if (!grouped[key]) {
+                    grouped[key] = {
+                        name: log.profiles?.username || "Unknown",
+                        date: log.date,
+                        in: "--",
+                        out: "--"
+                    };
+                }
+                if (log.action === 'Clock In') grouped[key].in = log.time;
+                if (log.action === 'Clock Out') grouped[key].out = log.time;
+            });
+
+            rawLogs = Object.values(grouped);
+            renderTable();
+        }
+
+        function renderTable() {
+            const search = document.getElementById('filter-name').value.toLowerCase();
+            const body = document.getElementById('log-table-body');
+            body.innerHTML = "";
+            let activeCount = 0;
+
+            rawLogs.forEach(row => {
+                if (row.name.toLowerCase().includes(search)) {
+                    const dur = calculateDuration(row.in, row.out);
+                    const isWorking = row.out === "--";
+                    if (isWorking) activeCount++;
+
+                    body.innerHTML += `
+                        <tr class="border-b border-white/5 hover:bg-honey/5 transition-all">
+                            <td class="p-6 font-bold text-white uppercase tracking-tight">${row.name}</td>
+                            <td class="p-6 text-white/50 font-medium">${row.date}</td>
+                            <td class="p-6 mono text-honey">${row.in}</td>
+                            <td class="p-6 mono text-honey/60">${row.out}</td>
+                            <td class="p-6 font-black text-white italic">${dur}</td>
+                            <td class="p-6 text-center">
+                                <span class="px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest
+                                    ${isWorking ? 'bg-honey text-black animate-pulse' : 'bg-white/10 text-white/40'}">
+                                    ${isWorking ? 'Active' : 'Finished'}
+                                </span>
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+            document.getElementById('stat-active').innerText = activeCount;
+        }
+
+        function calculateDuration(start, end) {
+            if (start === "--" || end === "--") return "--";
+            const s = new Date(`2000-01-01T${start}`);
+            const e = new Date(`2000-01-01T${end}`);
+            const diff = (e - s) / 1000 / 60;
+            return `${Math.floor(diff/60)}h ${Math.floor(diff%60)}m`;
+        }
+
+        async function handleLogout() {
+            await _supabase.auth.signOut();
+            window.location.href = "index.html";
+        }
+
+        checkAdmin();
+    </script>
+</body>
+</html>

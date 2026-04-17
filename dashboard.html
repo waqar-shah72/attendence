@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hive of Solutions | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&family=JetBrains+Mono:wght@500;800&display=swap');
+        
+        :root {
+            --honey: #fcac18;
+            --emerald: #032721;
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: black; 
+            color: white; 
+            min-height: 100vh;
+        }
+
+        .glass { 
+            background: rgba(3, 39, 33, 0.4); 
+            backdrop-filter: blur(15px); 
+            border: 1px solid rgba(252, 172, 24, 0.1); 
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .text-honey { color: var(--honey); }
+        .bg-honey { background-color: var(--honey); }
+        .hidden-panel { display: none; }
+        
+        /* Glow effect for the active timer */
+        .timer-glow { text-shadow: 0 0 20px rgba(252, 172, 24, 0.3); }
+
+        /* Modal Animation */
+        #custom-modal { display: none; }
+        .modal-animate { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-6">
+
+    <div class="mb-12 text-center">
+        <img src="logo.png" alt="Hive of Solutions" class="h-20 w-auto mx-auto mb-4">
+    </div>
+
+    <div class="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+        <div class="glass rounded-[3rem] p-12 flex flex-col items-center shadow-2xl border-t border-honey/20">
+            <p class="text-honey/60 font-black uppercase tracking-[0.4em] text-[10px] mb-4">Station Time</p>
+            <div id="live-clock" class="mono text-7xl font-extrabold text-white tracking-tighter">00:00:00</div>
+            <div id="live-date" class="text-white/30 mt-4 font-bold text-[10px] uppercase tracking-widest italic">...</div>
+        </div>
+
+        <div class="glass rounded-[3rem] p-12 flex flex-col items-center shadow-2xl border-t border-honey/50">
+            <p class="text-honey font-black uppercase tracking-[0.4em] text-[10px] mb-4">Total Session</p>
+            <div id="work-timer" class="mono text-7xl font-extrabold text-honey tracking-tighter timer-glow">00:00:00</div>
+            <div id="timer-status" class="text-white/30 mt-4 font-bold text-[10px] uppercase tracking-widest font-black italic">Waiting for Start</div>
+        </div>
+    </div>
+
+    <div class="w-full max-w-5xl glass rounded-[3rem] p-10 border-b-4 border-honey">
+        <div class="flex flex-row justify-between items-center gap-6">
+            <div>
+                <p class="text-[10px] font-black text-honey uppercase tracking-[0.2em] mb-1">Authenticated Employee</p>
+                <h2 id="user-name" class="text-3xl font-black italic uppercase tracking-tight text-white">Loading...</h2>
+            </div>
+
+            <div id="controls" class="flex flex-row items-center gap-3">
+                <button id="btn-start" onclick="startWork()" class="bg-honey hover:brightness-110 text-black font-black px-8 py-5 rounded-2xl transition-all shadow-xl shadow-honey/10 active:scale-95 text-base italic uppercase tracking-tighter shrink-0">
+                    Clock In Now 🚀
+                </button>
+
+                <div id="active-controls" class="hidden-panel flex flex-row items-center gap-3">
+                    <button id="btn-break" onclick="toggleBreak()" class="glass hover:bg-honey/10 text-honey font-black px-6 py-5 rounded-2xl transition-all border border-honey/30 active:scale-95 uppercase text-xs shrink-0">
+                        Take a Break ☕
+                    </button>
+                    <button onclick="confirmEndDay()" class="bg-white/5 hover:bg-red-600 text-white font-black px-6 py-5 rounded-2xl transition-all border border-white/10 active:scale-95 uppercase text-xs shrink-0">
+                        Finish Day
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="glass max-w-sm w-full rounded-[2.5rem] p-8 text-center border-honey/30 modal-animate">
+            <div id="modal-icon" class="text-5xl mb-4">✨</div>
+            <h2 id="modal-title" class="text-xl font-black text-honey uppercase mb-2">Notice</h2>
+            <p id="modal-msg" class="text-white/70 text-sm mb-6 font-medium leading-relaxed"></p>
+            
+            <div id="modal-actions" class="flex flex-col gap-2">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const _supabase = supabase.createClient('https://bbshtqpmpnzqivjfnelf.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJic2h0cXBtcG56cWl2amZuZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzODY2MDEsImV4cCI6MjA5MTk2MjYwMX0.nD-exGA7NF4vUJhZPBkWkyV-JHQYXGoZdOzWbDAAj8I');
+
+        let seconds = 0;
+        let timerInterval;
+        let isPaused = false;
+
+        // --- MODAL SYSTEM ---
+        function showModal(msg, icon = "⚠️", title = "Notification", type = "alert") {
+            document.getElementById('modal-msg').innerText = msg;
+            document.getElementById('modal-icon').innerText = icon;
+            document.getElementById('modal-title').innerText = title;
+            
+            const actionArea = document.getElementById('modal-actions');
+            actionArea.innerHTML = "";
+
+            if (type === "confirm") {
+                actionArea.innerHTML = `
+                    <button onclick="executeEndDay()" class="w-full bg-honey text-black py-4 rounded-2xl font-black uppercase text-xs tracking-widest">Yes, Finish Day</button>
+                    <button onclick="closeModal()" class="w-full bg-white/5 py-4 rounded-2xl font-black uppercase text-xs tracking-widest">Cancel</button>
+                `;
+            } else {
+                actionArea.innerHTML = `
+                    <button onclick="closeModal()" class="w-full bg-white/10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest">Dismiss</button>
+                `;
+            }
+            document.getElementById('custom-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('custom-modal').style.display = 'none';
+        }
+
+        // --- CLOCK & TIMER ---
+        function updateLiveClock() {
+            const now = new Date();
+            document.getElementById('live-clock').innerText = now.toLocaleTimeString('en-GB', { hour12: false });
+            document.getElementById('live-date').innerText = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+        setInterval(updateLiveClock, 1000);
+        updateLiveClock();
+
+        function updateWorkTimer() {
+            if (!isPaused) {
+                seconds++;
+                const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+                const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+                const s = (seconds % 60).toString().padStart(2, '0');
+                document.getElementById('work-timer').innerText = `${h}:${m}:${s}`;
+            }
+        }
+
+        // --- ACTIONS ---
+        async function startWork() {
+            document.getElementById('btn-start').classList.add('hidden-panel');
+            document.getElementById('active-controls').classList.remove('hidden-panel');
+            document.getElementById('timer-status').innerText = "Running Session";
+            document.getElementById('timer-status').classList.replace('text-white/30', 'text-honey');
+            
+            timerInterval = setInterval(updateWorkTimer, 1000);
+            logToDB('Clock In');
+            showModal("Work session started. Good luck!", "🚀", "Clocked In");
+        }
+
+        async function toggleBreak() {
+            const btn = document.getElementById('btn-break');
+            if (!isPaused) {
+                isPaused = true;
+                btn.innerText = "Resume Work ✅";
+                document.getElementById('timer-status').innerText = "Paused on Break";
+                logToDB('Break Start');
+                showModal("Break session started. Enjoy your rest.", "☕", "On Break");
+            } else {
+                isPaused = false;
+                btn.innerText = "Take a Break ☕";
+                document.getElementById('timer-status').innerText = "Running Session";
+                logToDB('Break End');
+                showModal("Break ended. Welcome back!", "✅", "Resumed");
+            }
+        }
+
+        function confirmEndDay() {
+            showModal("Are you sure you want to finish your work day?", "❓", "Confirm Finish", "confirm");
+        }
+
+        async function executeEndDay() {
+            closeModal();
+            clearInterval(timerInterval);
+            await logToDB('Clock Out');
+            await _supabase.auth.signOut();
+            window.location.href = "index.html";
+        }
+
+        async function logToDB(action) {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) return;
+
+            const { error } = await _supabase.from('attendance').insert([{
+                user_id: session.user.id,
+                action: action,
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toLocaleTimeString('en-GB')
+            }]);
+            
+            if (error) console.error(error.message);
+        }
+
+        async function init() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) window.location.href = "index.html";
+            const { data: profile } = await _supabase.from('profiles').select('username').eq('id', session.user.id).single();
+            if (profile) document.getElementById('user-name').innerText = profile.username;
+        }
+        init();
+    </script>
+</body>
+</html>

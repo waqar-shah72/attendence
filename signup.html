@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hive of Solutions | Join Team</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
+        
+        :root {
+            --honey: #fcac18;
+            --emerald: #032721;
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: black; 
+            color: white; 
+        }
+
+        .glass { 
+            background: rgba(3, 39, 33, 0.4); 
+            backdrop-filter: blur(15px); 
+            border: 1px solid rgba(252, 172, 24, 0.1); 
+        }
+
+        .input-field {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(252, 172, 24, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            border-color: var(--honey);
+            box-shadow: 0 0 15px rgba(252, 172, 24, 0.1);
+            outline: none;
+        }
+
+        /* Modal Animation */
+        #custom-modal { display: none; }
+        .modal-animate { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-md w-full glass rounded-[3rem] p-10 shadow-2xl border-t border-honey/20">
+        <div class="text-center mb-10">
+            <img src="logo1.png" alt="Hive of Solutions" class="h-16 w-auto mx-auto mb-4">
+            <h1 class="text-2xl font-extrabold tracking-tight">CREATE <span class="text-[#fcac18]">PROFILE</span></h1>
+            <p class="text-white/40 text-[10px] font-bold uppercase tracking-[0.3em] mt-2">Join the Hive Network</p>
+        </div>
+
+        <div class="space-y-5">
+            <div>
+                <label class="text-[10px] font-black uppercase text-[#fcac18] tracking-widest ml-4 mb-2 block">Choose Username</label>
+                <input type="text" id="user" placeholder="e.g. jsmith" 
+                    class="input-field w-full px-6 py-4 rounded-2xl text-white placeholder:text-white/20">
+            </div>
+
+            <div>
+                <label class="text-[10px] font-black uppercase text-[#fcac18] tracking-widest ml-4 mb-2 block">Password</label>
+                <input type="password" id="pass" placeholder="Min. 6 characters" 
+                    class="input-field w-full px-6 py-4 rounded-2xl text-white placeholder:text-white/20">
+            </div>
+            
+            <button onclick="handleSignup()" 
+                class="w-full bg-[#fcac18] text-black font-black py-5 rounded-2xl hover:brightness-110 transition-all shadow-xl shadow-[#fcac18]/10 active:scale-95 uppercase italic tracking-tighter text-lg mt-4">
+                Register Now 🚀
+            </button>
+            
+            <div class="text-center mt-8">
+                <a href="index.html" class="text-white/40 text-[10px] font-black uppercase hover:text-[#fcac18] transition-colors tracking-[0.2em]">
+                    Already have an account? Sign In
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="glass max-w-sm w-full rounded-[2.5rem] p-8 text-center border-honey/30 modal-animate">
+            <div id="modal-icon" class="text-5xl mb-4">✨</div>
+            <h2 id="modal-title" class="text-xl font-black text-honey uppercase mb-2">Notice</h2>
+            <p id="modal-msg" class="text-white/70 text-sm mb-6 font-medium leading-relaxed"></p>
+            <button id="modal-btn" onclick="closeModal()" class="w-full bg-white/10 hover:bg-white/20 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all">Dismiss</button>
+        </div>
+    </div>
+
+    <script>
+    const _supabase = supabase.createClient(
+        'https://bbshtqpmpnzqivjfnelf.supabase.co', 
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJic2h0cXBtcG56cWl2amZuZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzODY2MDEsImV4cCI6MjA5MTk2MjYwMX0.nD-exGA7NF4vUJhZPBkWkyV-JHQYXGoZdOzWbDAAj8I'
+    );
+
+    // MODAL LOGIC
+    function showModal(msg, icon = "⚠️", title = "Notification", showButton = true) {
+        document.getElementById('modal-msg').innerText = msg;
+        document.getElementById('modal-icon').innerText = icon;
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('modal-btn').style.display = showButton ? 'block' : 'none';
+        document.getElementById('custom-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('custom-modal').style.display = 'none';
+    }
+
+    async function handleSignup() {
+        const u = document.getElementById('user').value.trim();
+        const p = document.getElementById('pass').value;
+
+        if (!u || p.length < 6) {
+            showModal("Username is required and password must be at least 6 characters.", "✍️", "Input Error");
+            return;
+        }
+
+        const email = u.toLowerCase() + "@work.com";
+
+        // 1. Create the Auth User
+        const { data: authData, error: authErr } = await _supabase.auth.signUp({
+            email: email,
+            password: p
+        });
+
+        if (authErr) {
+            showModal(authErr.message, "🚫", "Signup Error");
+            return;
+        }
+
+        // 2. Create the profile in the database table
+        if (authData.user) {
+            const { error: dbErr } = await _supabase
+                .from('profiles')
+                .insert([
+                    { 
+                        id: authData.user.id, 
+                        username: u, 
+                        role: 'employee' 
+                    }
+                ]);
+
+            if (dbErr) {
+                console.error(dbErr);
+                showModal("Account created, but profile mapping failed: " + dbErr.message, "❌", "Database Error");
+            } else {
+                showModal("Registration Successful! Taking you to the login screen...", "🐝", "Success", false);
+                setTimeout(() => {
+                    window.location.href = "index.html";
+                }, 2500);
+            }
+        }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hive of Solutions | Sign In</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
+        :root { --honey: #fcac18; --emerald: #032721; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: black; color: white; }
+        .glass { background: rgba(3, 39, 33, 0.4); backdrop-filter: blur(15px); border: 1px solid rgba(252, 172, 24, 0.1); }
+        .input-field { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(252, 172, 24, 0.1); transition: all 0.3s ease; }
+        .input-field:focus { border-color: var(--honey); box-shadow: 0 0 15px rgba(252, 172, 24, 0.1); outline: none; }
+        
+        /* Modal Animation */
+        #custom-modal { display: none; }
+        .modal-animate { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+
+    <div class="max-w-md w-full glass rounded-[3rem] p-10 shadow-2xl border-t border-honey/20">
+        <div class="text-center mb-10">
+            <img src="logo.png" alt="Hive of Solutions" class="h-16 w-auto mx-auto mb-4">
+            <h1 class="text-2xl font-extrabold tracking-tight uppercase">HIVE OF <span class="text-[#fcac18]">SOLUTIONS</span></h1>
+            <p class="text-white/40 text-[10px] font-bold uppercase tracking-[0.3em] mt-2">Secure Access Portal</p>
+        </div>
+
+        <div class="space-y-5">
+            <input type="text" id="user" placeholder="Username" class="input-field w-full px-6 py-4 rounded-2xl text-white">
+            <input type="password" id="pass" placeholder="Password" class="input-field w-full px-6 py-4 rounded-2xl text-white">
+            <button onclick="handleLogin()" class="w-full bg-[#fcac18] text-black font-black py-5 rounded-2xl hover:brightness-110 active:scale-95 uppercase italic tracking-tighter text-lg mt-4">Log In 🔑</button>
+            <div class="text-center mt-8">
+                <a href="signup.html" class="text-[#fcac18] text-xs font-black uppercase hover:underline tracking-widest">Create Profile</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="custom-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="glass max-w-sm w-full rounded-[2.5rem] p-8 text-center border-honey/30 modal-animate">
+            <div id="modal-icon" class="text-5xl mb-4">✨</div>
+            <h2 id="modal-title" class="text-xl font-black text-honey uppercase mb-2">Notice</h2>
+            <p id="modal-msg" class="text-white/70 text-sm mb-6 font-medium leading-relaxed"></p>
+            <button onclick="closeModal()" class="w-full bg-white/10 hover:bg-white/20 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all">Dismiss</button>
+        </div>
+    </div>
+
+    <script>
+    const _supabase = supabase.createClient('https://bbshtqpmpnzqivjfnelf.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJic2h0cXBtcG56cWl2amZuZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzODY2MDEsImV4cCI6MjA5MTk2MjYwMX0.nD-exGA7NF4vUJhZPBkWkyV-JHQYXGoZdOzWbDAAj8I');
+
+    function showModal(msg, icon = "⚠️", title = "Notification") {
+        document.getElementById('modal-msg').innerText = msg;
+        document.getElementById('modal-icon').innerText = icon;
+        document.getElementById('modal-title').innerText = title;
+        document.getElementById('custom-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('custom-modal').style.display = 'none';
+    }
+
+    async function handleLogin() {
+        const u = document.getElementById('user').value.trim().toLowerCase();
+        const p = document.getElementById('pass').value;
+        if (!u || !p) return showModal("Please fill in all fields", "❗", "Input Required");
+
+        const { data: authData, error: authErr } = await _supabase.auth.signInWithPassword({ 
+            email: u + "@work.com", 
+            password: p 
+        });
+
+        if (authErr) return showModal(authErr.message, "🚫", "Access Denied");
+
+        const { data: profile } = await _supabase.from('profiles').select('role').eq('id', authData.user.id).maybeSingle();
+
+        if (profile?.role === 'admin') window.location.href = "admin.html";
+        else window.location.href = "dashboard.html";
+    }
+    </script>
+</body>
+</html>
